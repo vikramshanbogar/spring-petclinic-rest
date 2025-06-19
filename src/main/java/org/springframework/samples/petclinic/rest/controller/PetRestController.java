@@ -16,6 +16,8 @@
 
 package org.springframework.samples.petclinic.rest.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.samples.petclinic.mapper.PetMapper;
@@ -40,6 +42,8 @@ import java.util.List;
 @RequestMapping("api")
 public class PetRestController implements PetsApi {
 
+    private static final Logger logger = LoggerFactory.getLogger(PetRestController.class);
+
     private final ClinicService clinicService;
 
     private final PetMapper petMapper;
@@ -52,20 +56,26 @@ public class PetRestController implements PetsApi {
     @PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
     @Override
     public ResponseEntity<PetDto> getPet(Integer petId) {
+        logger.debug("API request: get pet with ID={}", petId);
         PetDto pet = petMapper.toPetDto(this.clinicService.findPetById(petId));
         if (pet == null) {
+            logger.warn("Pet with ID={} not found", petId);
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+        logger.debug("Pet with ID={} found successfully", petId);
         return new ResponseEntity<>(pet, HttpStatus.OK);
     }
 
     @PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
     @Override
     public ResponseEntity<List<PetDto>> listPets() {
+        logger.debug("API request: list all pets");
         List<PetDto> pets = new ArrayList<>(petMapper.toPetsDto(this.clinicService.findAllPets()));
         if (pets.isEmpty()) {
+            logger.warn("No pets found");
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+        logger.debug("Returning {} pets", pets.size());
         return new ResponseEntity<>(pets, HttpStatus.OK);
     }
 
@@ -73,25 +83,31 @@ public class PetRestController implements PetsApi {
     @PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
     @Override
     public ResponseEntity<PetDto> updatePet(Integer petId, PetDto petDto) {
+        logger.debug("API request: update pet with ID={}", petId);
         Pet currentPet = this.clinicService.findPetById(petId);
         if (currentPet == null) {
+            logger.warn("Pet with ID={} not found for update", petId);
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
         currentPet.setBirthDate(petDto.getBirthDate());
         currentPet.setName(petDto.getName());
         currentPet.setType(petMapper.toPetType(petDto.getType()));
         this.clinicService.savePet(currentPet);
+        logger.info("Pet with ID={} updated successfully", petId);
         return new ResponseEntity<>(petMapper.toPetDto(currentPet), HttpStatus.NO_CONTENT);
     }
 
     @PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
     @Override
     public ResponseEntity<PetDto> deletePet(Integer petId) {
+        logger.debug("API request: delete pet with ID={}", petId);
         Pet pet = this.clinicService.findPetById(petId);
         if (pet == null) {
+            logger.warn("Pet with ID={} not found for deletion", petId);
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
         this.clinicService.deletePet(pet);
+        logger.info("Pet with ID={} deleted successfully", petId);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 

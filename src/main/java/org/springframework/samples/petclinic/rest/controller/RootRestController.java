@@ -20,6 +20,8 @@ import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,11 +37,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/")
 public class RootRestController {
 
+    private static final Logger logger = LoggerFactory.getLogger(RootRestController.class);
+
     @Value("#{servletContext.contextPath}")
     private String servletContextPath;
 
 	@RequestMapping(value = "/")
 	public void redirectToSwagger(HttpServletResponse response) throws IOException {
+		logger.debug("Redirecting to Swagger UI");
 		response.sendRedirect(this.servletContextPath + "/swagger-ui/index.html");
 	}
 

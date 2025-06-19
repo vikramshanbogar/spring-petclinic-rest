@@ -16,6 +16,8 @@
 
 package org.springframework.samples.petclinic.rest.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,8 @@ import jakarta.validation.Valid;
 @RequestMapping("api")
 public class UserRestController implements UsersApi {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserRestController.class);
+
     private final UserService userService;
     private final UserMapper userMapper;
 
@@ -49,9 +53,11 @@ public class UserRestController implements UsersApi {
     @PreAuthorize( "hasRole(@roles.ADMIN)" )
     @Override
     public ResponseEntity<UserDto> addUser(UserDto userDto) {
+        logger.debug("API request: add new user with username={}", userDto.getUsername());
         HttpHeaders headers = new HttpHeaders();
         User user = userMapper.toUser(userDto);
         this.userService.saveUser(user);
+        logger.info("User created successfully with username={}", user.getUsername());
         return new ResponseEntity<>(userMapper.toUserDto(user), headers, HttpStatus.CREATED);
     }
 }
