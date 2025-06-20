@@ -345,3 +345,6 @@ java -jar ./target/spring-petclinic-rest-3.4.3.jar --spring.profiles.active=post
 mvn spring-boot:run -Dspring-boot.run.profiles=postgres,spring-data-jpa
 
 
+added fakey py script for dynamic data generation
+updated postman collection in tests folder
+added logs to all controllers and services via ai
