@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  app:
+    # Use a pre-built Dev Container image that serves as the base for your environment.
+    # The Dev Container features (from devcontainer.json) will then add Java 21 and Maven on top.
+    image: mcr.microsoft.com/devcontainers/java:21 # Recommended base image for Java Dev Containers
+    container_name: java-app-dev
+    volumes:
+      - .:/workspaces/${localWorkspaceFolderBasename}  # Mount your project code
+    ports:
+      - "8080:8080"  # Example port for a Spring Boot app
+    depends_on:
+      - db
+    environment:
+      # Database connection details (adjust as needed for your application)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mydatabase
+      SPRING_DATASOURCE_USERNAME: myuser
+      SPRING_DATASOURCE_PASSWORD: mypassword
+
+  db:
+    image: postgres:17-alpine  # Using Alpine for smaller image size
+    container_name: postgres-db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persistent data for PostgreSQL
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - "5432:5432"  # Expose PostgreSQL port to your host
+
+volumes:
+  postgres_data:
