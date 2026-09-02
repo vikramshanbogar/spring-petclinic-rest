@@ -23,10 +23,14 @@ import java.util.Map;
 
 import javax.sql.DataSource;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jspecify.annotations.NonNull;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -38,7 +42,6 @@ import org.springframework.samples.petclinic.model.PetType;
 import org.springframework.samples.petclinic.model.Visit;
 import org.springframework.samples.petclinic.repository.OwnerRepository;
 import org.springframework.samples.petclinic.repository.PetRepository;
-import org.springframework.samples.petclinic.repository.VisitRepository;
 import org.springframework.samples.petclinic.util.EntityUtils;
 import org.springframework.stereotype.Repository;
 
@@ -51,6 +54,7 @@ import org.springframework.stereotype.Repository;
  * @author Mark Fisher
  * @author Vitaliy Fedoriv
  */
+@DependsOnDatabaseInitialization
 @Repository
 @Profile("jdbc")
 public class JdbcPetRepositoryImpl implements PetRepository {
@@ -61,13 +65,8 @@ public class JdbcPetRepositoryImpl implements PetRepository {
 
     private OwnerRepository ownerRepository;
 
-    private VisitRepository visitRepository;
-
-
-    @Autowired
     public JdbcPetRepositoryImpl(DataSource dataSource,
-    		OwnerRepository ownerRepository,
-    		VisitRepository visitRepository) {
+    		OwnerRepository ownerRepository) {
         this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
 
         this.insertPet = new SimpleJdbcInsert(dataSource)
@@ -75,7 +74,6 @@ public class JdbcPetRepositoryImpl implements PetRepository {
             .usingGeneratedKeyColumns("id");
 
         this.ownerRepository = ownerRepository;
-        this.visitRepository = visitRepository;
     }
 
     @Override
@@ -126,12 +124,12 @@ public class JdbcPetRepositoryImpl implements PetRepository {
             .addValue("type_id", pet.getType().getId())
             .addValue("owner_id", pet.getOwner().getId());
     }
-    
+
 	@Override
 	public Collection<Pet> findAll() throws DataAccessException {
 		Map<String, Object> params = new HashMap<>();
-		Collection<Pet> pets = new ArrayList<Pet>();
-		Collection<JdbcPet> jdbcPets = new ArrayList<JdbcPet>();
+		Collection<Pet> pets = new ArrayList<>();
+		Collection<JdbcPet> jdbcPets;
 		jdbcPets = this.namedParameterJdbcTemplate
 				.query("SELECT pets.id as pets_id, name, birth_date, type_id, owner_id FROM pets",
 				params,
@@ -152,18 +150,49 @@ public class JdbcPetRepositoryImpl implements PetRepository {
 		return pets;
 	}
 
+    @Override
+    public Page<Pet> findAll(@NonNull Pageable pageable) throws DataAccessException {
+        Map<String, Object> params = new HashMap<>();
+        params.put("size", pageable.getPageSize());
+        params.put("offset", pageable.getOffset());
+        List<JdbcPet> jdbcPets = this.namedParameterJdbcTemplate.query(
+            "SELECT pets.id as pets_id, name, birth_date, type_id, owner_id FROM pets ORDER BY id LIMIT :size OFFSET :offset",
+            params,
+            new JdbcPetRowMapper());
+        Collection<PetType> petTypes = this.namedParameterJdbcTemplate.query(
+            "SELECT id, name FROM types ORDER BY name",
+            new HashMap<String, Object>(),
+            BeanPropertyRowMapper.newInstance(PetType.class));
+
+        Collection<Owner> owners = this.namedParameterJdbcTemplate.query(
+            "SELECT id, first_name, last_name, address, city, telephone FROM owners ORDER BY last_name",
+            new HashMap<String, Object>(),
+            BeanPropertyRowMapper.newInstance(Owner.class));
+
+        for (JdbcPet jdbcPet : jdbcPets) {
+            jdbcPet.setType(EntityUtils.getById(petTypes, PetType.class, jdbcPet.getTypeId()));
+            jdbcPet.setOwner(EntityUtils.getById(owners, Owner.class, jdbcPet.getOwnerId()));
+        }
+
+        Long total = this.namedParameterJdbcTemplate.queryForObject(
+            "SELECT count(*) FROM pets",
+            params,
+            Long.class);
+        return new PageImpl<>(new ArrayList<>(jdbcPets), pageable, total == null ? 0 : total);
+    }
+
 	@Override
 	public void delete(Pet pet) throws DataAccessException {
-		Map<String, Object> pet_params = new HashMap<>();
-		pet_params.put("id", pet.getId());
+		Map<String, Object> petParams = new HashMap<>();
+		petParams.put("id", pet.getId());
 		List<Visit> visits = pet.getVisits();
 		// cascade delete visits
 		for (Visit visit : visits) {
-			Map<String, Object> visit_params = new HashMap<>();
-			visit_params.put("id", visit.getId());
-			this.namedParameterJdbcTemplate.update("DELETE FROM visits WHERE id=:id", visit_params);
+			Map<String, Object> visitParams = new HashMap<>();
+			visitParams.put("id", visit.getId());
+			this.namedParameterJdbcTemplate.update("DELETE FROM visits WHERE id=:id", visitParams);
 		}
-		this.namedParameterJdbcTemplate.update("DELETE FROM pets WHERE id=:id", pet_params);
+		this.namedParameterJdbcTemplate.update("DELETE FROM pets WHERE id=:id", petParams);
 	}
 
 }

@@ -12,6 +12,7 @@ import java.util.Collection;
 /**
  * Map User/Role & UserDto/RoleDto using mapstruct
  */
+@Mapper
 public interface UserMapper {
 
     @Mapping(target = "id", ignore = true)

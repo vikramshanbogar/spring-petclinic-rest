@@ -16,14 +16,18 @@
 package org.springframework.samples.petclinic.repository.jpa;
 
 import java.util.Collection;
+import java.util.List;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
+import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataAccessException;
-import org.springframework.orm.hibernate5.support.OpenSessionInViewFilter;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.samples.petclinic.model.Owner;
 import org.springframework.samples.petclinic.repository.OwnerRepository;
 import org.springframework.stereotype.Repository;
@@ -50,7 +54,7 @@ public class JpaOwnerRepositoryImpl implements OwnerRepository {
      * we do not need Visits at all and we only need one property from the Pet objects (the 'name' property).
      * There are some ways to improve it such as:
      * - creating a Ligtweight class (example here: https://community.jboss.org/wiki/LightweightClass)
-     * - Turning on lazy-loading and using {@link OpenSessionInViewFilter}
+     * - Turning on lazy-loading and using open session in view pattern
      */
     @SuppressWarnings("unchecked")
     public Collection<Owner> findByLastName(String lastName) {
@@ -59,6 +63,20 @@ public class JpaOwnerRepositoryImpl implements OwnerRepository {
         Query query = this.em.createQuery("SELECT DISTINCT owner FROM Owner owner left join fetch owner.pets WHERE owner.lastName LIKE :lastName");
         query.setParameter("lastName", lastName + "%");
         return query.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Page<Owner> findByLastName(String lastName, Pageable pageable) throws DataAccessException {
+        Query query = this.em.createQuery("SELECT owner FROM Owner owner WHERE owner.lastName LIKE :lastName ORDER BY owner.id");
+        query.setParameter("lastName", lastName + "%");
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+        List<Owner> owners = query.getResultList();
+        Query countQuery = this.em.createQuery("SELECT COUNT(owner) FROM Owner owner WHERE owner.lastName LIKE :lastName");
+        countQuery.setParameter("lastName", lastName + "%");
+        long total = (long) countQuery.getSingleResult();
+        return new PageImpl<>(owners, pageable, total);
     }
 
     @Override
@@ -87,6 +105,18 @@ public class JpaOwnerRepositoryImpl implements OwnerRepository {
 		Query query = this.em.createQuery("SELECT owner FROM Owner owner");
         return query.getResultList();
 	}
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Page<Owner> findAll(@NonNull Pageable pageable) throws DataAccessException {
+        Query query = this.em.createQuery("SELECT owner FROM Owner owner ORDER BY owner.id");
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+        List<Owner> owners = query.getResultList();
+        Query countQuery = this.em.createQuery("SELECT COUNT(owner) FROM Owner owner");
+        long total = (long) countQuery.getSingleResult();
+        return new PageImpl<>(owners, pageable, total);
+    }
 
 	@Override
 	public void delete(Owner owner) throws DataAccessException {
